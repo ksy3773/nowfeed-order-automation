@@ -3,12 +3,19 @@ import google.generativeai as genai
 import pandas as pd
 import json
 import io
+# --- [추가 1] 날짜 계산을 위한 파이썬 기본 도구 불러오기 ---
+from datetime import datetime, timedelta, timezone
 
 # --- 1. 제미나이 API 설정 ---
 # 실제 사용 시에는 환경변수나 st.secrets를 사용하는 것이 안전합니다.
 API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel('gemini-2.5-flash')
+
+# --- [추가 2] 한국 시간 기준으로 오늘 날짜 구하기 ---
+# 서버가 외국에 있어서 한국 시간(UTC+9)으로 맞춰줘야 합니다.
+kst = timezone(timedelta(hours=9))
+today_str = datetime.now(kst).strftime("%Y년 %m월 %d일")
 
 # --- 2. 웹 앱 기본 설정 ---
 st.set_page_config(page_title="발주 자동 정리기", layout="centered")
@@ -29,6 +36,7 @@ if st.button("AI 자동 정리 실행"):
         with st.spinner("제미나이가 데이터를 분석하고 있습니다..."):
             # AI에게 내릴 프롬프트 (명령어)
             prompt = f"""
+            오늘 날짜는 {today_str}이거야.
             다음 텍스트에서 발주 관련 정보를 추출해서 반드시 JSON 배열 형식으로만 응답해줘.
             키워드: "발주처", "품목명", "수량", "납기일", "비고"
             
@@ -36,7 +44,7 @@ if st.button("AI 자동 정리 실행"):
             1. 발주처: 농장명, 목장명, 거래처 이름 (예: A농장, 김사장님)
             2. 품목명: 사료, 원료 등의 제품 이름
             3. 수량: 반드시 숫자와 단위(포, 톤, kg 등)를 붙여서 표기할 것
-            4. 납기일: 반드시 "yyyy-mm-dd" 형태. 오전, 오후 등의 형태는 비고 란으로 보냄.
+            4. 납기일: 텍스트에 '내일', '모레', '다음주 월요일' 같은 표현이 있으면, 제공된 오늘 날짜({today_str})를 기준으로 계산해서 무조건 'YYYY-MM-DD' 형식(예: 2026-03-29)으로 변환해서 적어줘. 오전, 오후 등의 형태는 비고 란으로 보내.
             5. 비고: 포장 형태(지대, 톤백 등)나 기타 요청사항
             
             텍스트: {raw_text}
