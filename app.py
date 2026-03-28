@@ -6,7 +6,7 @@ import io
 
 # --- 1. 제미나이 API 설정 ---
 # 실제 사용 시에는 환경변수나 st.secrets를 사용하는 것이 안전합니다.
-API_KEY = st.secrets["GEMINI_API_KEY"]API_KEY = st.secrets["GEMINI_API_KEY"]
+API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel('gemini-2.5-flash')
 
