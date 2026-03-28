@@ -14,8 +14,17 @@ model = genai.GenerativeModel('gemini-2.5-flash')
 
 # --- [추가 2] 한국 시간 기준으로 오늘 날짜 구하기 ---
 # 서버가 외국에 있어서 한국 시간(UTC+9)으로 맞춰줘야 합니다.
+# --- [수정된 부분: 날짜 계산 고도화 (파이썬이 미리 다 계산하기)] ---
 kst = timezone(timedelta(hours=9))
-today_str = datetime.now(kst).strftime("%Y년 %m월 %d일")
+now = datetime.now(kst)
+
+# 요일까지 계산해서 알려주면 '다음주 월요일' 같은 계산을 훨씬 잘합니다.
+weekdays = ["월", "화", "수", "목", "금", "토", "일"]
+weekday_str = weekdays[now.weekday()]
+
+today_info = f"{now.strftime('%Y-%m-%d')} ({weekday_str}요일)"
+tomorrow_date = (now + timedelta(days=1)).strftime("%Y-%m-%d")
+day_after_tomorrow_date = (now + timedelta(days=2)).strftime("%Y-%m-%d")
 
 # --- 2. 웹 앱 기본 설정 ---
 st.set_page_config(page_title="발주 자동 정리기", layout="centered")
@@ -35,17 +44,26 @@ if st.button("AI 자동 정리 실행"):
     if raw_text:
         with st.spinner("제미나이가 데이터를 분석하고 있습니다..."):
             # AI에게 내릴 프롬프트 (명령어)
+            # --- [수정된 부분: 프롬프트에 날짜 컨닝 페이퍼 쥐여주기] ---
             prompt = f"""
-            오늘 날짜는 {today_str}이거야.
+            [현재 기준 날짜 컨닝 페이퍼]
+            - 오늘: {today_info}
+            - 내일: {tomorrow_date}
+            - 모레: {day_after_tomorrow_date}
+
             다음 텍스트에서 발주 관련 정보를 추출해서 반드시 JSON 배열 형식으로만 응답해줘.
             키워드: "발주처", "품목명", "수량", "납기일", "비고"
             
             [추출 규칙]
-            1. 발주처: 농장명, 목장명, 거래처 이름 (예: A농장, 김사장님)
+            1. 발주처: 농장명, 목장명, 거래처 이름 (예: A농장)
             2. 품목명: 사료, 원료 등의 제품 이름
             3. 수량: 반드시 숫자와 단위(포, 톤, kg 등)를 붙여서 표기할 것
-            4. 납기일: 텍스트에 '내일', '모레', '다음주 월요일' 같은 표현이 있으면, 제공된 오늘 날짜({today_str})를 기준으로 계산해서 무조건 'YYYY-MM-DD' 형식(예: 2026-03-29)으로 변환해서 적어줘. 오전, 오후 등의 형태는 비고 란으로 보내.
-            5. 비고: 포장 형태(지대, 톤백 등)나 기타 요청사항
+            4. 납기일: 텍스트에 명시된 일정을 위 '컨닝 페이퍼'를 참고하여 무조건 'YYYY-MM-DD' 형식으로 적어줘.
+               - 예: 텍스트에 '내일'이라고 적혀있으면 '{tomorrow_date}' 라고 적을 것.
+               - '다음주 월요일', '3일 뒤' 같은 표현은 오늘({today_info})을 기준으로 달력을 계산해서 적을 것.
+               - 날짜 정보가 없으면 빈칸("")으로 둘 것.
+               - 오전, 오후 등의 시간 정보는 '비고' 란으로 보낼 것.
+            5. 비고: 포장 형태(지대, 톤백 등)나 시간, 기타 요청사항
             
             텍스트: {raw_text}
             """
